@@ -1,0 +1,25 @@
+{
+  "name": "discord-bot",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.1.0-beta.11",
+    "@composio/core": "^0.1.53",
+    "@composio/vercel": "^0.2.9",
+    "ai": "^5.1.0-beta.19",
+    "dotenv": "^17.2.3",
+    "discord.js": "^14.15.3",
+    "zod": "^4.1.11"
+  }
+}
