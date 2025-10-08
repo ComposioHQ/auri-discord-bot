@@ -14,15 +14,18 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.23",
     "@ai-sdk/openai": "^2.1.0-beta.11",
-    "@composio/core": "0.1.53-alpha-type-fix",
+    "@composio/core": "^0.1.54",
     "@composio/vercel": "^0.2.9",
     "@modelcontextprotocol/sdk": "^1.19.1",
+    "@openai/agents": "^0.1.9",
     "@openrouter/ai-sdk-provider": "^1.2.0",
     "ai": "^5.0.60",
     "discord.js": "^14.15.3",
     "dotenv": "^17.2.3",
     "js-tiktoken": "^1.0.21",
+    "openai": "^6.2.0",
     "zod": "^4.1.11"
   }
 }

@@ -3,11 +3,24 @@ import { registerReactionSubscriptions } from "../lib/subscribe.ts";
 import { experimental_createMCPClient, generateText, stepCountIs } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
+// const openrouter = createOpenRouter({
+//   apiKey: process.env.OPENROUTER_API_KEY,
+//   baseURL: "https://openrouter.helicone.ai/api/v1/chat/completions",
+//   headers: {
+//     "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+//   },
+// });
+
+const anthropic = createAnthropic({
+  baseURL: "https://anthropic.helicone.ai/v1",
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  headers: {
+    "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+  },
 });
 
 export interface StarReplyAgentConfig {
@@ -35,6 +48,8 @@ export const startStarReplyAgent = async (
       ],
     }
   );
+
+  console.log("session id:", session.sessionId);
 
   const httpTransport = new StreamableHTTPClientTransport(
     new URL(session.url),
@@ -65,7 +80,8 @@ export const startStarReplyAgent = async (
         console.log("star reply - tools:", tools);
 
         const result = await generateText({
-          model: openrouter("anthropic/claude-4.5-sonnet"),
+          //   model: openrouter("anthropic/claude-4.5-sonnet"),
+          model: anthropic("claude-sonnet-4-0"),
           prompt: `reply to user on discord (discordbot) with a funny message. context: ${
             message.content
           }, user: ${user.toString()}, reaction: ${
