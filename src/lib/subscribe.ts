@@ -6,7 +6,7 @@ import type {
   PartialMessageReaction,
   TextBasedChannel,
   User,
-} from 'discord.js';
+} from "discord.js";
 
 type ReactionIdentifier = string;
 type MessageIdentifier = string;
@@ -28,6 +28,8 @@ interface ReactionContext {
 interface MessageContext {
   client: Client;
   message: Message;
+  channel: SendableChannel;
+  user: User;
 }
 
 type ReactionAction = (context: ReactionContext) => Promise<void> | void;
@@ -55,7 +57,7 @@ let messageListenerRegistered = false;
 
 const addReactionAction = (
   emoji: ReactionIdentifier,
-  action: ReactionAction,
+  action: ReactionAction
 ): void => {
   reactionActions.set(normalizeEmojiKey(emoji), action);
 };
@@ -99,12 +101,14 @@ export interface MessageActionRegistry {
  */
 export const registerReactionSubscriptions = (
   client: Client,
-  subscriptions: ReactionSubscription[] = [],
+  subscriptions: ReactionSubscription[] = []
 ): ReactionActionRegistry => {
-  subscriptions.forEach(({ emoji, action }) => addReactionAction(emoji, action));
+  subscriptions.forEach(({ emoji, action }) =>
+    addReactionAction(emoji, action)
+  );
 
   if (!reactionListenerRegistered) {
-    client.on('messageReactionAdd', async (rawReaction, rawUser) => {
+    client.on("messageReactionAdd", async (rawReaction, rawUser) => {
       if (rawUser.bot) {
         return;
       }
@@ -114,6 +118,12 @@ export const registerReactionSubscriptions = (
         const user = rawUser.partial ? await rawUser.fetch() : rawUser;
         const message = await hydrateMessage(reaction.message);
         const emojiKey = reaction.emoji.id ?? reaction.emoji.name;
+
+        console.log("[DEBUG] Reaction detected:", {
+          name: reaction.emoji.name,
+          id: reaction.emoji.id,
+          emojiKey,
+        });
 
         if (!emojiKey) {
           return;
@@ -136,6 +146,12 @@ export const registerReactionSubscriptions = (
         pushCandidate(reaction.emoji.name);
         pushCandidate(reaction.emoji.id);
 
+        console.log("[DEBUG] Candidate keys:", candidateKeys);
+        console.log(
+          "[DEBUG] Registered actions:",
+          Array.from(reactionActions.keys())
+        );
+
         let matchedKey: ReactionIdentifier | undefined;
         let action: ReactionAction | undefined;
 
@@ -148,6 +164,8 @@ export const registerReactionSubscriptions = (
             break;
           }
         }
+
+        console.log("[DEBUG] Matched key:", matchedKey);
 
         if (!action || !matchedKey) {
           return;
@@ -169,7 +187,7 @@ export const registerReactionSubscriptions = (
         });
       } catch (error) {
         const identifier =
-          rawReaction.emoji?.name ?? rawReaction.emoji?.id ?? 'unknown';
+          rawReaction.emoji?.name ?? rawReaction.emoji?.id ?? "unknown";
         console.error(`Failed to process reaction ${identifier}:`, error);
       }
     });
@@ -178,7 +196,7 @@ export const registerReactionSubscriptions = (
   }
 
   if (reactionActions.size === 0) {
-    addReactionAction('⭐', async ({ message, user, reaction, channel }) => {
+    addReactionAction("⭐", async ({ message, user, reaction, channel }) => {
       if (!message.guild) {
         return;
       }
@@ -189,7 +207,9 @@ export const registerReactionSubscriptions = (
       }
 
       await channel.send({
-        content: `⭐ ${user.toString()} starred a message from ${message.author}: ${message.url}`,
+        content: `⭐ ${user.toString()} starred a message from ${
+          message.author
+        }: ${message.url}`,
         allowedMentions: { users: [user.id] },
       });
     });
@@ -208,14 +228,19 @@ export const registerReactionSubscriptions = (
  */
 export const registerMessageSubscriptions = (
   client: Client,
-  subscriptions: MessageSubscription[] = [],
+  subscriptions: MessageSubscription[] = []
 ): MessageActionRegistry => {
   subscriptions.forEach(addMessageAction);
 
   if (!messageListenerRegistered) {
-    client.on('messageCreate', async (rawMessage) => {
+    client.on("messageCreate", async (rawMessage) => {
       try {
         const message = await hydrateMessage(rawMessage);
+        const channel = message.channel;
+
+        if (!isSendableChannel(channel)) {
+          return;
+        }
 
         for (const subscription of messageActions.values()) {
           if (subscription.filter && !subscription.filter(message)) {
@@ -225,10 +250,12 @@ export const registerMessageSubscriptions = (
           await subscription.action({
             client,
             message,
+            channel,
+            user: message.author,
           });
         }
       } catch (error) {
-        console.error('Failed to process incoming message:', error);
+        console.error("Failed to process incoming message:", error);
       }
     });
 
@@ -243,7 +270,7 @@ export const registerMessageSubscriptions = (
 };
 
 const hydrateReaction = async (
-  reaction: MessageReaction | PartialMessageReaction,
+  reaction: MessageReaction | PartialMessageReaction
 ): Promise<MessageReaction> => {
   if (reaction.partial) {
     return reaction.fetch();
@@ -253,7 +280,7 @@ const hydrateReaction = async (
 };
 
 const hydrateMessage = async (
-  message: Message | PartialMessage,
+  message: Message | PartialMessage
 ): Promise<Message> => {
   if (message.partial) {
     return message.fetch();
@@ -298,10 +325,9 @@ export const messageRegistry: MessageActionRegistry = {
 };
 
 const isSendableChannel = (
-  channel: Message['channel'],
+  channel: Message["channel"]
 ): channel is SendableChannel => {
   return (
-    !!channel &&
-    typeof (channel as { send?: unknown }).send === 'function'
+    !!channel && typeof (channel as { send?: unknown }).send === "function"
   );
 };
