@@ -12,10 +12,17 @@ export interface RunAgentOptions {
   requiredEnvVars?: string[];
   clientOptions?: Partial<ClientOptions>;
   onReady: (client: Client) => void | Promise<void>;
+  onShutdown?: () => void | Promise<void>;
 }
 
 export const runAgent = async (options: RunAgentOptions) => {
-  const { name, requiredEnvVars = [], clientOptions = {}, onReady } = options;
+  const {
+    name,
+    requiredEnvVars = [],
+    clientOptions = {},
+    onReady,
+    onShutdown,
+  } = options;
 
   // check required env vars
   const token = process.env.DISCORD_BOT_TOKEN;
@@ -58,9 +65,12 @@ export const runAgent = async (options: RunAgentOptions) => {
   });
 
   // setup shutdown handlers
-  const shutdown = () => {
+  const shutdown = async () => {
     if (client.isReady()) {
       console.log(`shutting down ${name}`);
+    }
+    if (onShutdown) {
+      await onShutdown();
     }
     client.destroy();
     process.exit(0);
