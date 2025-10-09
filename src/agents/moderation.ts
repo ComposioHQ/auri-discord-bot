@@ -8,7 +8,7 @@ import { VercelProvider } from "@composio/vercel";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: "https://openrouter.helicone.ai/api/v1/chat/completions",
+  baseURL: "https://openrouter.helicone.ai/api/v1",
   headers: {
     "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
   },
@@ -44,12 +44,7 @@ export const startModerationAgent = async (
 
   console.log("session id:", session.sessionId);
 
-  const httpTransport = new StreamableHTTPClientTransport(
-    new URL(session.url),
-    {
-      fetch: fetch,
-    }
-  );
+  const httpTransport = new StreamableHTTPClientTransport(new URL(session.url));
 
   const httpClient = await experimental_createMCPClient({
     transport: httpTransport,
