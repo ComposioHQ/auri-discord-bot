@@ -11,6 +11,7 @@ const openrouter = createOpenRouter({
   baseURL: "https://openrouter.helicone.ai/api/v1",
   headers: {
     "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
+    "Helicone-Cache-Enabled": "false",
   },
 });
 
@@ -109,7 +110,7 @@ channel: ${channel.toString()}`,
         });
 
         const result = await generateText({
-          model: openrouter("anthropic/claude-4.5-sonnet"),
+          model: openrouter("anthropic/claude-haiku-4.5"),
           system: `you are a discord bot that helps moderate the discord #general channel, you also operate in the background so must take actions on your own in a self direction way without being asked or prompted by user.
 
 here are some things you should do:
