@@ -234,6 +234,8 @@ export const registerMessageSubscriptions = (
 
   if (!messageListenerRegistered) {
     client.on("messageCreate", async (rawMessage) => {
+      let currentSubscriptionId: string | null = null;
+
       try {
         const message = await hydrateMessage(rawMessage);
         const channel = message.channel;
@@ -242,10 +244,37 @@ export const registerMessageSubscriptions = (
           return;
         }
 
+        console.log("[messages] received message:", {
+          id: message.id,
+          authorId: message.author.id,
+          channelId: channel.id,
+          channelName:
+            "name" in channel && typeof channel.name === "string"
+              ? channel.name
+              : null,
+          subscriptionCount: messageActions.size,
+        });
+
         for (const subscription of messageActions.values()) {
-          if (subscription.filter && !subscription.filter(message)) {
+          const shouldRun = subscription.filter
+            ? subscription.filter(message)
+            : true;
+
+          console.log("[messages] subscription evaluation:", {
+            subscriptionId: subscription.id,
+            shouldRun,
+          });
+
+          if (!shouldRun) {
             continue;
           }
+
+          currentSubscriptionId = subscription.id;
+
+          console.log("[messages] executing action:", {
+            subscriptionId: subscription.id,
+            messageId: message.id,
+          });
 
           await subscription.action({
             client,
@@ -253,9 +282,20 @@ export const registerMessageSubscriptions = (
             channel,
             user: message.author,
           });
+
+          console.log("[messages] completed action:", {
+            subscriptionId: subscription.id,
+            messageId: message.id,
+          });
+
+          currentSubscriptionId = null;
         }
       } catch (error) {
-        console.error("Failed to process incoming message:", error);
+        console.error("Failed to process incoming message:", {
+          messageId: rawMessage?.id ?? "unknown",
+          subscriptionId: currentSubscriptionId,
+          error,
+        });
       }
     });
 
