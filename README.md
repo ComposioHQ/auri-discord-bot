@@ -29,10 +29,10 @@ create a `.env` file in the project root:
 DISCORD_BOT_TOKEN=your_discord_bot_token
 COMPOSIO_APIKEY=your_composio_api_key
 OPENROUTER_API_KEY=your_openrouter_api_key
-# optional: defaults to openai/gpt-5-mini via openrouter
-AURI_MODEL=openai/gpt-5-mini
+# optional: defaults to openai/gpt-5.4-mini via openrouter
+AURI_MODEL=openai/gpt-5.4-mini
 # optional: used only by the standalone openai agents
-AURI_OPENAI_MODEL=gpt-5-mini
+AURI_OPENAI_MODEL=gpt-5.4-mini
 # optional: enables helicone routing/tracing for openrouter
 HELICONE_API_KEY=your_helicone_api_key
 SUPPORT_FORUM_CHANNEL_ID=your_channel_id

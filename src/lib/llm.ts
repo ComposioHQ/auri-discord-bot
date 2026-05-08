@@ -1,7 +1,7 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
-export const DEFAULT_AURI_MODEL = "openai/gpt-5-mini";
-export const DEFAULT_OPENAI_AGENT_MODEL = "gpt-5-mini";
+export const DEFAULT_AURI_MODEL = "openai/gpt-5.4-mini";
+export const DEFAULT_OPENAI_AGENT_MODEL = "gpt-5.4-mini";
 
 const trimmedEnv = (name: string): string | undefined => {
   const value = process.env[name]?.trim();
