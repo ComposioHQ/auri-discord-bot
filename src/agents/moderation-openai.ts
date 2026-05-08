@@ -1,8 +1,8 @@
 import type { Client } from "discord.js";
 import { registerMessageSubscriptions } from "../lib/subscribe.ts";
 import { Agent, run, hostedMcpTool } from "@openai/agents";
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
+import { createDiscordToolRouterSession } from "../lib/composio-tool-router.ts";
+import { getOpenAIAgentModelId } from "../lib/llm.ts";
 
 export interface ModerationOpenAIAgentConfig {
   supportForumChannelId: string;
@@ -16,25 +16,16 @@ export const startModerationOpenAIAgent = async (
   client: Client,
   config: ModerationOpenAIAgentConfig
 ) => {
-  console.log("starting moderation openai agent...");
+  const model = getOpenAIAgentModelId();
+  console.log("starting moderation openai agent...", { model });
 
-  const composio = new Composio({
-    apiKey: config.composioApiKey,
-    provider: new VercelProvider(),
-  });
-
-  const session = await composio.experimental.toolRouter.createSession(
-    config.userEmail,
-    {
-      toolkits: [
-        { toolkit: "discordbot", authConfigId: config.composioAuthConfigId },
-      ],
-    }
-  );
+  const session = await createDiscordToolRouterSession(config);
 
   const mcpTool = hostedMcpTool({
     serverLabel: "composio-discordbot",
-    serverUrl: session.url,
+    serverUrl: session.mcp.url,
+    headers: session.mcp.headers,
+    requireApproval: "never",
   });
 
   const agent = new Agent({
@@ -48,7 +39,7 @@ here are some things you should do:
 4. if someone outright spams or tries to @ everyone or posts some crypto stuff, delete all their messages and time them out
 
 when talking to users be very friendly, conversational, quirky, all lowercase. be very much a robot. avoid emojis`,
-    model: "gpt-4o",
+    model,
     tools: [mcpTool],
   });
 
@@ -56,6 +47,11 @@ when talking to users be very friendly, conversational, quirky, all lowercase. b
     {
       id: "moderation-openai-general",
       filter: (message) => {
+        const channelName =
+          "name" in message.channel && typeof message.channel.name === "string"
+            ? message.channel.name
+            : "";
+
         console.log("moderation openai - checking message:", {
           id: message.id,
           channel: message.channel,
@@ -65,7 +61,7 @@ when talking to users be very friendly, conversational, quirky, all lowercase. b
         return (
           message.inGuild() &&
           message.author.id !== message.client.user?.id &&
-          message.channel.name.includes("general")
+          channelName.toLowerCase().includes("general")
         );
       },
       action: async ({ message, user, channel }) => {

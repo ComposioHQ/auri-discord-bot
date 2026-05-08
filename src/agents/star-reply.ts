@@ -1,27 +1,11 @@
 import type { Client } from "discord.js";
 import { registerReactionSubscriptions } from "../lib/subscribe.ts";
-import { experimental_createMCPClient, generateText, stepCountIs } from "ai";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
-
-// const openrouter = createOpenRouter({
-//   apiKey: process.env.OPENROUTER_API_KEY,
-//   baseURL: "https://openrouter.helicone.ai/api/v1/chat/completions",
-//   headers: {
-//     "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-//   },
-// });
-
-const anthropic = createAnthropic({
-  baseURL: "https://anthropic.helicone.ai/v1",
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  headers: {
-    "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-  },
-});
+import { generateText, stepCountIs } from "ai";
+import {
+  createDiscordToolRouterSession,
+  summarizeTools,
+} from "../lib/composio-tool-router.ts";
+import { getAuriModel, getAuriModelId } from "../lib/llm.ts";
 
 export interface StarReplyAgentConfig {
   composioApiKey: string;
@@ -33,34 +17,18 @@ export const startStarReplyAgent = async (
   client: Client,
   config: StarReplyAgentConfig
 ) => {
-  console.log("starting star reply agent (example tool router)...");
+  const modelId = getAuriModelId();
+  console.log("starting star reply agent...", { model: modelId });
 
-  const composio = new Composio({
-    apiKey: config.composioApiKey,
-    provider: new VercelProvider(),
+  const session = await createDiscordToolRouterSession(config);
+
+  console.log("tool router session:", {
+    sessionId: session.sessionId,
+    mcpType: session.mcp.type,
   });
 
-  const session = await composio.experimental.toolRouter.createSession(
-    config.userEmail,
-    {
-      toolkits: [
-        { toolkit: "discordbot", authConfigId: config.composioAuthConfigId },
-      ],
-    }
-  );
-
-  console.log("session id:", session.sessionId);
-
-  const httpTransport = new StreamableHTTPClientTransport(
-    new URL(session.url),
-    {
-      fetch: fetch,
-    }
-  );
-
-  const httpClient = await experimental_createMCPClient({
-    transport: httpTransport,
-  });
+  const tools = await session.tools();
+  console.log("star reply - tool summary:", summarizeTools(tools));
 
   registerReactionSubscriptions(client, [
     {
@@ -75,19 +43,14 @@ export const startStarReplyAgent = async (
         console.log("star reply - reaction emoji name:", reaction.emoji.name);
         console.log("star reply - reaction emoji id:", reaction.emoji.id);
 
-        const tools = await httpClient.tools();
-
-        console.log("star reply - tools:", tools);
-
         const result = await generateText({
-          //   model: openrouter("anthropic/claude-4.5-sonnet"),
-          model: anthropic("claude-sonnet-4-0"),
+          model: getAuriModel(),
           prompt: `reply to user on discord (discordbot) with a funny message. context: ${
             message.content
           }, user: ${user.toString()}, reaction: ${
             reaction.emoji.name
           }, channel: ${channel.toString()}`,
-          tools: tools,
+          tools,
           stopWhen: stepCountIs(25),
         });
 

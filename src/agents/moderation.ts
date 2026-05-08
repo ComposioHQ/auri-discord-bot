@@ -1,10 +1,11 @@
 import type { Client } from "discord.js";
 import { registerMessageSubscriptions } from "../lib/subscribe.ts";
-import { experimental_createMCPClient, generateText, stepCountIs } from "ai";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
+import { generateText, stepCountIs } from "ai";
+import {
+  createDiscordToolRouterSession,
+  summarizeTools,
+} from "../lib/composio-tool-router.ts";
+import { getAuriModel, getAuriModelId } from "../lib/llm.ts";
 
 const previewText = (text: string, maxLength = 160) => {
   if (!text) {
@@ -18,15 +19,6 @@ const previewText = (text: string, maxLength = 160) => {
   return `${text.slice(0, maxLength)}...`;
 };
 
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: "https://openrouter.helicone.ai/api/v1",
-  headers: {
-    "Helicone-Auth": `Bearer ${process.env.HELICONE_API_KEY}`,
-    "Helicone-Cache-Enabled": "false",
-  },
-});
-
 export interface ModerationAgentConfig {
   supportForumChannelId: string;
   introduceYourselfChannelId: string;
@@ -39,29 +31,18 @@ export const startModerationAgent = async (
   client: Client,
   config: ModerationAgentConfig
 ) => {
-  console.log("starting moderation agent...");
+  const modelId = getAuriModelId();
+  console.log("starting moderation agent...", { model: modelId });
 
-  const composio = new Composio({
-    apiKey: config.composioApiKey,
-    provider: new VercelProvider(),
+  const session = await createDiscordToolRouterSession(config);
+
+  console.log("tool router session:", {
+    sessionId: session.sessionId,
+    mcpType: session.mcp.type,
   });
 
-  const session = await composio.experimental.toolRouter.createSession(
-    config.userEmail,
-    {
-      toolkits: [
-        { toolkit: "discordbot", authConfigId: config.composioAuthConfigId },
-      ],
-    }
-  );
-
-  console.log("session id:", session.sessionId);
-
-  const httpTransport = new StreamableHTTPClientTransport(new URL(session.url));
-
-  const httpClient = await experimental_createMCPClient({
-    transport: httpTransport,
-  });
+  const tools = await session.tools();
+  console.log("moderation - tool summary:", summarizeTools(tools));
 
   registerMessageSubscriptions(client, [
     {
@@ -106,40 +87,6 @@ export const startModerationAgent = async (
           type: channel.type,
         });
 
-        console.log("moderation - fetching available tools from MCP...");
-        const tools = await httpClient.tools();
-        const toolNames =
-          Array.isArray(tools) && tools.length > 0
-            ? tools
-                .map((tool) => {
-                  if (tool && typeof tool === "object" && "name" in tool) {
-                    return String((tool as { name?: string }).name);
-                  }
-
-                  if (
-                    tool &&
-                    typeof tool === "object" &&
-                    "metadata" in tool &&
-                    tool.metadata &&
-                    typeof tool.metadata === "object" &&
-                    "name" in tool.metadata
-                  ) {
-                    return String(
-                      (tool as { metadata?: { name?: string } }).metadata?.name
-                    );
-                  }
-
-                  return typeof tool === "string"
-                    ? tool
-                    : `[unnamed:${typeof tool}]`;
-                })
-                .slice(0, 10)
-            : [];
-        console.log("moderation - tool summary:", {
-          count: Array.isArray(tools) ? tools.length : "unknown",
-          names: toolNames,
-        });
-
         // extract images from message attachments
         const imageAttachments = Array.from(
           message.attachments.values()
@@ -174,12 +121,13 @@ channel: ${channel.toString()}`,
 
         console.log("moderation - invoking generateText with payload:", {
           messageId: message.id,
+          model: modelId,
           contentBlocks: messageContent.length,
         });
 
         try {
           const result = await generateText({
-            model: openrouter("anthropic/claude-haiku-4.5"),
+            model: getAuriModel(),
             system: `you are a discord bot that helps moderate the discord #general channel, you also operate in the background so must take actions on your own in a self direction way without being asked or prompted by user.
 
 here are some things you should do:
@@ -195,7 +143,7 @@ when talking to users be very friendly, conversational, quirky, all lowercase. b
                 content: messageContent,
               },
             ],
-            tools: tools,
+            tools,
             onStepFinish: (step) => {
               console.log("moderation - step finished:", step.content);
             },

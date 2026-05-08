@@ -19,6 +19,7 @@ the bot runs four distinct agents that can be toggled individually:
 - discord bot token with message content intent enabled
 - composio api key and auth config
 - openrouter api key
+- optional helicone api key for tracing openrouter calls
 
 ### environment variables
 
@@ -28,6 +29,12 @@ create a `.env` file in the project root:
 DISCORD_BOT_TOKEN=your_discord_bot_token
 COMPOSIO_APIKEY=your_composio_api_key
 OPENROUTER_API_KEY=your_openrouter_api_key
+# optional: defaults to openai/gpt-5-mini via openrouter
+AURI_MODEL=openai/gpt-5-mini
+# optional: used only by the standalone openai agents
+AURI_OPENAI_MODEL=gpt-5-mini
+# optional: enables helicone routing/tracing for openrouter
+HELICONE_API_KEY=your_helicone_api_key
 SUPPORT_FORUM_CHANNEL_ID=your_channel_id
 ```
 
@@ -76,7 +83,7 @@ each agent can be run independently for testing by executing its file directly w
 ## tech stack
 
 - discord.js for bot interactions
-- composio for tool orchestration via mcp
+- composio tool router for discordbot tool orchestration
 - vercel ai sdk for llm integration
-- openrouter for model access
+- openrouter for cheap model access
 - typescript and bun for runtime

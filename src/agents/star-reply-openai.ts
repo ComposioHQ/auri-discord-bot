@@ -1,8 +1,8 @@
 import type { Client } from "discord.js";
 import { registerReactionSubscriptions } from "../lib/subscribe.ts";
 import { Agent, run, hostedMcpTool } from "@openai/agents";
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
+import { createDiscordToolRouterSession } from "../lib/composio-tool-router.ts";
+import { getOpenAIAgentModelId } from "../lib/llm.ts";
 
 export interface StarReplyOpenAIAgentConfig {
   composioApiKey: string;
@@ -14,32 +14,23 @@ export const startStarReplyOpenAIAgent = async (
   client: Client,
   config: StarReplyOpenAIAgentConfig
 ) => {
-  console.log("starting star reply openai agent...");
+  const model = getOpenAIAgentModelId();
+  console.log("starting star reply openai agent...", { model });
 
-  const composio = new Composio({
-    apiKey: config.composioApiKey,
-    provider: new VercelProvider(),
-  });
-
-  const session = await composio.experimental.toolRouter.createSession(
-    config.userEmail,
-    {
-      toolkits: [
-        { toolkit: "discordbot", authConfigId: config.composioAuthConfigId },
-      ],
-    }
-  );
+  const session = await createDiscordToolRouterSession(config);
 
   const mcpTool = hostedMcpTool({
     serverLabel: "composio-discordbot",
-    serverUrl: session.url,
+    serverUrl: session.mcp.url,
+    headers: session.mcp.headers,
+    requireApproval: "never",
   });
 
   const agent = new Agent({
     name: "discord reply agent",
     instructions:
       "you are a helpful discord bot that replies to messages with funny and engaging content. be concise and witty.",
-    model: "gpt-5",
+    model,
     tools: [mcpTool],
   });
 
